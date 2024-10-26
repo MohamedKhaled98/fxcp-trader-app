@@ -1,15 +1,15 @@
 # trader_app
 
-A new Flutter project.
+Trading Instruments App - Technical Assessment
 
 ## Getting Started
 
 This project is a starting point for a Flutter application.
 
-A few resources to get you started if this is your first Flutter project:
+## NOTES
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Note: Due to Finnhub Websocket limitations, only one device can
+establish a socket connection at a time.
 
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
