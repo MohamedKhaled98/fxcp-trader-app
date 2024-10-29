@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:trader_app/core/interfaces/socket_interface.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-class FinnhubWebSocket {
+class FinnhubWebSocket implements ISocket {
   bool _connected = false;
   bool _explicitlyClosed = false;
   List<String> _activeSubscriptions = [];
   late WebSocketChannel _channel;
 
   /// Connects to the WebSocket server. Only allows a single connection.
+  @override
   Future<void> connect(
     Function onMessageReceived, {
     List<String>? initialSymbols,
@@ -28,62 +30,15 @@ class FinnhubWebSocket {
 
       _channel.stream.listen(
         (message) {
-          print('Message received: ${jsonDecode(message)['type']}');
           onMessageReceived(jsonDecode(message));
         },
         onError: (error) => _handleError(error, onMessageReceived),
         onDone: () => _handleDone(onMessageReceived),
       );
-
       _resubscribeActiveSymbols(initialSymbols);
     } catch (e) {
       print('Connection error: $e');
       _reconnect(onMessageReceived);
-    }
-  }
-
-  void _emitSubscribtionEvent(String type, String symbol) {
-    final message = jsonEncode({'type': type, 'symbol': symbol});
-    _channel.sink.add(message);
-  }
-
-  _resubscribeActiveSymbols(List<String>? initialSymbols) {
-    final symbols = _activeSubscriptions.isNotEmpty
-        ? _activeSubscriptions
-        : (initialSymbols ?? []);
-
-    for (var symbol in symbols) {
-      _emitSubscribtionEvent('subscribe', symbol);
-    }
-  }
-
-  changeSubscriptions(List<String> newSymbols) {
-    for (var symbol in _activeSubscriptions) {
-      _emitSubscribtionEvent('unsubscribe', symbol);
-    }
-    _activeSubscriptions = [];
-    addSubscriptions(newSymbols);
-  }
-
-  void addSubscriptions(List<String> symbols) {
-    if (_connected) {
-      for (var symbol in symbols) {
-        if (!_activeSubscriptions.contains(symbol)) {
-          _emitSubscribtionEvent('subscribe', symbol);
-        }
-      }
-      _activeSubscriptions.addAll(symbols);
-    }
-  }
-
-  void removeSubscriptions(List<String> symbols) {
-    if (_connected) {
-      for (var symbol in symbols) {
-        if (_activeSubscriptions.contains(symbol)) {
-          _emitSubscribtionEvent('unsubscribe', symbol);
-          _activeSubscriptions.remove(symbol);
-        }
-      }
     }
   }
 
@@ -106,6 +61,36 @@ class FinnhubWebSocket {
     }
   }
 
+  @override
+  void subscribe(data) {
+    final message = jsonEncode({'type': 'subscribe', 'symbol': data});
+    _channel.sink.add(message);
+    _activeSubscriptions.add(data);
+  }
+
+  @override
+  void unsubscribe(data) {
+    final message = jsonEncode({'type': 'unsubscribe', 'symbol': data});
+    _channel.sink.add(message);
+    _activeSubscriptions.remove(data);
+  }
+
+  _resubscribeActiveSymbols(List<String>? initialSymbols) {
+    final symbols = List.from(initialSymbols ?? _activeSubscriptions);
+    _activeSubscriptions = [];
+    for (var symbol in symbols) {
+      subscribe(symbol);
+    }
+  }
+
+  @override
+  void resetSubscriptions() {
+    for (var symbol in List.from(_activeSubscriptions)) {
+      unsubscribe(symbol);
+    }
+    _activeSubscriptions = [];
+  }
+
   /// Attempts to reconnect after a delay.
   void _reconnect(Function onMessageReceived) {
     Future.delayed(const Duration(seconds: 3), () {
@@ -116,6 +101,7 @@ class FinnhubWebSocket {
   }
 
   /// Closes the WebSocket connection explicitly.
+  @override
   void close() {
     _connected = false;
     _explicitlyClosed = true;

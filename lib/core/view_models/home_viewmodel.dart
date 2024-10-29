@@ -9,9 +9,9 @@ import 'package:trader_app/core/repositories/stock_repository.dart';
 import 'package:trader_app/core/models/trade.dart';
 
 class HomeViewModel extends GetxController {
-  final StockRepository _stockRepository =
+final StockRepository _stockRepository =
       StockRepository(); // it can be a singlton for cashing but in this case we don't
-  final FinnhubWebSocket _socket = FinnhubWebSocket();
+      final FinnhubWebSocket _socket = FinnhubWebSocket();
 
   AssetType assetType = AssetType.stock;
   List<String> _symbols = AssetType.stock.popularSymbols;
@@ -43,7 +43,6 @@ class HomeViewModel extends GetxController {
 
     _symbols = type.popularSymbols;
     getInitialSymbolsPrices();
-    _socket.changeSubscriptions(_symbols);
   }
 
   void handleFetchTopMovers() async {
@@ -85,9 +84,10 @@ class HomeViewModel extends GetxController {
     }).toList();
     await Future.wait(futures);
     _liveTrades = trades;
-    update(['live_trades']);
-
     liveTradesLoading = false;
+    update(['live_trades']);
+    _socket.resetSubscriptions();
+    _symbols.forEach(_socket.subscribe);
   }
 
   _handleRecivedData(Map message) {
